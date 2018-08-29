@@ -11,6 +11,8 @@ library(magrittr)
 library(vcd)
 library(MASS)
 library(caret)
+library(readr)
+library(readxl)
 ```
 Question 1a:
 Step 1. Open "iris" data set 
@@ -123,16 +125,103 @@ Use cross validation in lda and compare classification rate success
 Start by creating a vector of 113 random numbers ranging from 1 to 150 (113/150 observations is roughly 75%)
 Next, randomly select a subset of 113 cases from the data set to be analysed as a training sample
 ```{r}
-random113 <- runif(113, min=1, max=150)
+random113 <- sample(1:150, 113, replace = FALSE)
 ldamodel2 <-lda(Species ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data = iris, subset = random113)
 ldamodel2
 ldamodel2predict <- predict(ldamodel2)
-confusionMatrix(ldamodel2predict$class, iris$Species)
+confusionMatrix(ldamodel2predict$class, iris$Species[random113])
+
+```
+I'm not sure how to compare this to a test set. I will therefore use traditional training and test sets
+
+```{r}
+# Build the training and test data sets
+set.seed(2)
+iristraindata <- sample_frac(iris, 0.75)
+iristestdata  <- dplyr::setdiff(iris, iristraindata)
+
+# Build the lda model on the training data set
+ldamodeltrain <- lda(Species ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data = iristraindata)
+
+# Generate an LDA prediction object of traindata
+ldamodeltrainpred <- predict(ldamodeltrain)
+
+# Generate a confusion matrix for training set
+confusionMatrix(as.factor(ldamodeltrainpred$class), as.factor(iristraindata$Species), 
+                positive = c("1"))
+
+# Generate an LDA prediction object of testdata
+ldamodeltestpred <- predict(ldamodeltrain,
+                            newdata = iristestdata)
+
+# Generate a confusion matrix for test set
+confusionMatrix(as.factor(ldamodeltestpred$class), as.factor(iristestdata$Species), 
+                positive = c("1"))
+
+```
+THe train data (on which we built the model) has an accuracy of 0.9911, thus in about 99% of cases the model correctly predicts iris species.
+The test data has an accuracy of 0.9474, thus in about 95% of cases the model correctly predicts iris species. A slight drop in accuracy is to be expected, but the model is still very good and highly significant (p < 0.001)
+
+
+Question 1f. 
+Repeat a quadratic discriminant analysis for the model, and include accuracy rate from confusion matrix
+```{r}
+qdamodel1 <-qda(Species ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data = iris)
+qdamodel1
+qdamodel1predict <- predict(qdamodel1)
+confusionMatrix(qdamodel1predict$class, iris$Species)
+```
+This quadratic discriminant analysis has the same high accuracy (0.98) as the linear discriminant analysis, and it has the same significance. THis confirms that the model is linear and not quadratic, as adding the option for a quadratic distribution did not improve the model.
+_____________________________________________________________________
+Question 2:
+Load data set titanic3.xls
+```{r}
+titanic<- read_excel("../data/titanic3.xls")
 ```
 
+Question 2a: 
+split data into training and test sets
 
-e. Note that LDA has a form of cross validation built into it as an option. Use it, and compare the
-classification rate success (NOTE: LDA is somewhat inconsistent in how it works, you will need to
-experiment with the predict method, the class object (element of the object created by LDA) etc.
-in order to accomplish this). (5)
-f. Attempt b and c for the function qda, which implements quadratic discriminant analysis. (10)
+```{r}
+# Build the training and test data sets
+set.seed(2)
+titanictraindata <- sample_frac(titanic, 0.75)
+titanictestdata  <- dplyr::setdiff(titanic, titanictraindata)
+
+```
+VARIABLE DESCRIPTIONS:
+pclass Passenger Class
+ (1 = 1st; 2 = 2nd; 3 = 3rd)
+survival Survival
+ (0 = No; 1 = Yes)
+sex Sex
+age Age
+sibsp Number of Siblings/Spouses Aboard
+parch Number of Parents/Children Aboard
+fare Passenger Fare
+
+```{r}
+titanictraindata$survived_fact <- as.factor(titanictraindata$survived)
+
+
+qdatitanicmodel1 <- qda(survived_fact ~ pclass + as.factor(sex) + sibsp + parch, data = titanictraindata)
+qdatitanicmodel1
+
+qdatitanicmodel1predict <- predict(qdatitanicmodel1)
+confusionMatrix(qdatitanicmodel1predict$class, titanictraindata$survived_fact)
+
+```
+This model has an accuracy rate of 78%
+
+Question 2b:
+
+Test your model on the test set by computing and comparing MSE train and MSE test. (5)
+c. Re-run the analysis above (i.e. split the dataset into training and test sets, use the model
+you developed in a) and b) to compute MSE of the model as applied to the test set only),
+1000 times (inside a loop). Gather the accuracy rates and plot them as a histogram.
+What do you conclude? (10)
+d. Conduct LOOCV using the cv.glm function (in package boot). Note the cost function that
+you need to use. How does the result compare to what you found in b)? (10)
+e. Conduct 2 fold, 5 fold, and 10 fold cross validation using the cv.glm function. Set the
+random seed to 199 so that results are replicable. How do the results compare to what
+you found in c), b), and a)? (10)
