@@ -1,0 +1,138 @@
+---
+title: "Assignment 5"
+output: html_notebook
+---
+
+Loading required packages
+```{r}
+library(tidyverse)
+library(psych)
+library(magrittr)
+library(vcd)
+library(MASS)
+library(caret)
+```
+Question 1a:
+Step 1. Open "iris" data set 
+```{r}
+iris <- iris
+```
+Step 2. Summary statistics for all variables
+```{r}
+iris %>%  
+    describe     
+table(iris$Species)
+```
+From table 1 we can determine that there were 150 flower observations, and no missing data. Table 2 indicates that there were 50 observations of each of the 3 species: setosa, versicolor, and virginica. This is a factor variable, thus setosa = 1, versicolor = 2, and virginica = 3 in the code. Skewness and kurtosis statistics are acceptable for all continuous variables, suggesting normal distribution. An examination of minimum and maximum variables do not indicate values that are likely to be false (due to an impossible size)
+
+Step 3. Check distribution of continuous variables by Species, to establish multivariate normality (IVs must be normally distributed at each level of the grouping variable, i.e.: species)
+```{r}
+ggplot(data = iris, mapping = aes(x = Sepal.Length))+
+  geom_histogram(bins = 20)+
+  facet_wrap(~Species, nrow =3)
+ggplot(data = iris, mapping = aes(x = Sepal.Width))+
+  geom_histogram(bins = 20)+
+  facet_wrap(~Species, nrow = 3)
+ggplot(data = iris, mapping = aes(x = Petal.Length))+
+  geom_histogram(bins = 20)+
+  facet_wrap(~Species, nrow = 3)
+ggplot(data = iris, mapping = aes(x = Petal.Width))+
+  geom_histogram(bins = 20)+
+  facet_wrap(~Species, nrow = 3)
+```
+All variables look fairly normally distributed within each species. Linear discriminant analysis is also robust to slight violations of multivariate normality. 
+Each of the 150 obsertvations is of a seperate flower, thus cases are independent.
+
+Step 4. Check grouped distributions with summary stats, where skewness and kurtosis are reported by group. 
+```{r}
+describeBy(iris, group = iris$Species)
+
+```
+Table 2 = setosa, table 3 = versicolor, and table 4 = virginica
+All skewness and kurtosis values are acceptable, suggesting normal distribution of each variable for each species.
+Setosa have the lowest mean sepal length (m = 5.01, SD = 0.35), followed by versicolor (m = 5.94, SD = 0.52), and then virginica (m = 6.59, SD = 0.64).
+Setosa have the highest mean sepal width(m = 3.43, SD = 0.38), followed by virginica (m = 2.97, SD = 0.32), and then versicolor (m = 2.77, SD = 0.31), although the latter two have very similar means.
+This creates the impression that setosa have shorter, broader sepals, versicolor have longer, narrower sepals, and virginica have even longer sepals that are of similar bredth to versicolor sepals.
+Setosa have the lowest mean petal length (m = 1.46, SD = 0.17), followed by versicolor (m = 4.26, SD = 0.47), and then virginica (m = 5.55, SD = 0.55)
+Setosa also have the lowest mean petal width (m = 0.25, SD = 11), followed by versicolor (m = 1.33, SD = 0.20), and virginica (m = 2.03, SD = 0.27)
+So the setosa have the smallest petals (shortest and narrowest), followed by versicolor, and then virginica.
+In general, the flowers tend to ascend in size: setosa, versicolor, virginica (respectively). But whilst the petals get longer and broader, the sepals get longer and thinner.
+
+Step 5. check the relationship between each aspect of flower measurement and species
+```{r}
+ggplot(data = iris, mapping = aes(x = Sepal.Length, y = Sepal.Width, color = Species))+
+  geom_point()+
+  geom_smooth(method = "lm", se = FALSE)
+ggplot(data = iris, mapping = aes(x = Petal.Length, y = Petal.Width, color = Species))+
+  geom_point()+
+  geom_smooth(method = "lm", se = FALSE)
+
+```
+Graph 1 depicts the sepals in terms of length and width by species.
+As suggested by the summary, Setosa have distinctive short, broad petals. Versiocolor and Virginica have some overlap in the appearance of their sepals. Versicolor sepals are typically narrower than Setosa sepals, although there is a fair amount if overlap in sepal length. Virginica tend to have longer sepals than Setosa do, although there is a fair amount of overlap in sepal width. All sepals get wider as they get longer.
+Graph 2 depicts the petals in terms of length and width by species. The petal characteristics for each species are much more distinct than the sepal characteristics. As suggested by the summary statistics, petal size (length and width) increases across the species in the order: setosa, versicolor, virginica.
+
+Step 6. Due to the seemingly interactive nature of the two measurements for each part of the plant, it may be useful to see how the interaction of length and width for the sepals and petals correlate with species
+```{r}
+ggplot(data = iris, mapping = aes(x = Species, y = Sepal.Length*Sepal.Width))+
+  geom_jitter(height = 0, width = 0.25)+
+  geom_smooth(se = FALSE)
+ggplot(data = iris, mapping = aes(x = Species, y = Petal.Length*Petal.Width))+
+  geom_jitter(height = 0, width = 0.25)+
+  geom_smooth(se = FALSE)
+         
+```
+Whilst the sepal size (Graph 1) does not produce a clear pattern, petal size (Graph 2) clearly depitcs the ascending size pattern noted earlier.
+
+Question 1b
+Run a linear discriminant analysis to predict species, using the 4 variables in the data
+```{r}
+ldamodel1 <-lda(Species ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data = iris)
+ldamodel1
+
+```
+The prior probabilities of the groups confirm an equal number of observations were conducted for each species (one third of the total observations)
+
+Question 1c:
+USe confusion matrix to compute success rate
+```{r}
+
+ldamodel1predict <- predict(ldamodel1)
+confusionMatrix(ldamodel1predict$class, iris$Species)
+```
+The accuracy of this model is 0.98, meaning that this model can predict the species correctly from the plant part ratios (the variables) 98% of the time. The no information rate is 0.3333, meaning that with no information, the species would be correctly identified 33% of the time (by chance). Adding these 4 predictors improves the model by 65%. The 4 variable model is very good (and highly significant, p < 0.001):
+- it classified all cases of setosa correctly (as was suggested by the exploratory plots - where setosa was the most distinct in terms of both sepals and petals)
+- it only classified 2 cases of versicolor as virginica, and one case of virginica as versicolor (which could be expected, as there was an overlap in the sepal characteristics of these 2 species)
+
+147/150 observations were successfully classified according to species
+Sensitivity and specificity values were >= 0.98 for all 3 species
+
+QUestion 1d. 
+Use the plotting methods built into LDA in MASS to explore the adequacy of the classification.
+What do they tell you?
+
+Plot histogram with density plot overlay for each variable. All variables are multivariate normally distributed, meaning that each variable has a normal distribution for each species of iris. 
+```{r}
+ldahist(iris$Sepal.Length, iris$Species, type = "both")
+ldahist(iris$Sepal.Width, iris$Species, type = "both")
+ldahist(iris$Petal.Length, iris$Species, type = "both")
+ldahist(iris$Petal.Width, iris$Species, type = "histogram")
+```
+Question 1e:
+Use cross validation in lda and compare classification rate success
+Start by creating a vector of 113 random numbers ranging from 1 to 150 (113/150 observations is roughly 75%)
+Next, randomly select a subset of 113 cases from the data set to be analysed as a training sample
+```{r}
+random113 <- runif(113, min=1, max=150)
+ldamodel2 <-lda(Species ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data = iris, subset = random113)
+ldamodel2
+ldamodel2predict <- predict(ldamodel2)
+confusionMatrix(ldamodel2predict$class, iris$Species)
+```
+
+
+e. Note that LDA has a form of cross validation built into it as an option. Use it, and compare the
+classification rate success (NOTE: LDA is somewhat inconsistent in how it works, you will need to
+experiment with the predict method, the class object (element of the object created by LDA) etc.
+in order to accomplish this). (5)
+f. Attempt b and c for the function qda, which implements quadratic discriminant analysis. (10)
